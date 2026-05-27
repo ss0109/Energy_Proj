@@ -1,0 +1,41 @@
+# VCS
+.git/
+.gitignore
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# MLflow + artifacts (built by training, not shipped in the image)
+mlruns/
+models/
+
+# Batch outputs
+batches/
+*.batch.csv
+
+# Notebooks & checkpoints
+*.ipynb
+*-checkpoint.ipynb
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docs / dev
+README.md
+Makefile
+tests/
+requirements-dev.txt
+pyproject.toml

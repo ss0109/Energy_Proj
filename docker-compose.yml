@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+
+  api:
+    build: .
+    container_name: energy_api
+    ports:
+      - "8000:8000"
+    environment:
+      MLFLOW_RUN_ID: 7c855f5fcf5a4a6193976fa7a5a4aa89
+    volumes:
+      - ./mlruns:/app/mlruns
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    container_name: energy_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: energy_monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  adminer:
+    image: adminer
+    container_name: energy_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  grafana:
+    image: grafana/grafana
+    container_name: energy_grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  grafana_data:

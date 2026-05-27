@@ -1,0 +1,366 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "uid": "energy-monitoring",
+  "title": "Energy Forecast \u2014 Monitoring",
+  "tags": [
+    "mlops",
+    "energy"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total predictions logged",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS total FROM prediction_logs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Drifted features (latest run)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT MAX(created_at) AS ts FROM drift_logs) SELECT COUNT(*) AS drifted FROM drift_logs, latest WHERE drift_logs.created_at = latest.ts AND drift_detected = true",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 6
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Average API latency (s, last hour)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT AVG(latency_s) AS avg_latency FROM prediction_logs WHERE created_at > NOW() - INTERVAL '1 hour'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Distinct countries predicted",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT country) AS countries FROM prediction_logs",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Predicted GDP per country (vs forecast year)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(year::text, 'YYYY') AS \"time\", country AS metric, gdp AS value FROM prediction_logs ORDER BY year",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Predicted renewables share \u2014 by country",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(year::text, 'YYYY') AS \"time\", country AS metric, renewables_share_energy AS value FROM prediction_logs ORDER BY year",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "API latency over time",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT created_at AS \"time\", latency_s AS value, country AS metric FROM prediction_logs ORDER BY created_at",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Predictions per minute",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('minute', created_at) AS \"time\", COUNT(*) AS value FROM prediction_logs GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Latest drift report",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT MAX(created_at) AS ts FROM drift_logs) SELECT feature, ROUND(ks_stat::numeric, 4) AS ks_stat, ROUND(p_value::numeric, 4) AS p_value, ROUND(psi::numeric, 4) AS psi, drift_detected, ROUND(ref_mean::numeric, 2) AS ref_mean, ROUND(cur_mean::numeric, 2) AS cur_mean, source FROM drift_logs, latest WHERE drift_logs.created_at = latest.ts ORDER BY drift_detected DESC, psi DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "PSI over time (per feature) \u2014 drift trajectory",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT created_at AS \"time\", feature AS metric, psi AS value FROM drift_logs ORDER BY created_at",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 0.25
+              }
+            ]
+          },
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Monitoring metrics \u2014 latest backtest (per-feature)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "energy_pg"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT MAX(created_at) AS ts FROM monitoring_metrics) SELECT feature, ROUND(mae::numeric, 4) AS mae, ROUND(rmse::numeric, 4) AS rmse, ROUND(r2::numeric, 4) AS r2, n_samples, source FROM monitoring_metrics, latest WHERE monitoring_metrics.created_at = latest.ts ORDER BY r2 DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      }
+    }
+  ]
+}

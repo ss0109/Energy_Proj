@@ -1,0 +1,96 @@
+# =============================================================================
+# Automated model retraining pipeline.
+#
+# What it does:
+#   * Triggered manually (Actions tab) or weekly by cron.
+#   * Runs `batch_processing/train.py` in a clean Ubuntu container.
+#   * Extracts the best R² from the training log.
+#   * FAILS the workflow if R² < threshold (default 0.75). This is the
+#     "model quality gate" — bad models cannot silently land in main.
+#   * Uploads mlruns/, models/, and the training log as build artefacts
+#     downloadable from the run page.
+#
+# This is the headline CI/CD pipeline for the presentation. The point is:
+# code quality gates (lint, tests) are standard; MODEL quality gates are
+# what makes a pipeline MLOps-specific.
+# =============================================================================
+
+name: Train model
+
+on:
+  # Manual trigger from the Actions tab, with a configurable R² threshold.
+  workflow_dispatch:
+    inputs:
+      r2_threshold:
+        description: "Minimum acceptable R² (workflow fails below this)"
+        required: false
+        default: "0.75"
+  # Weekly retraining — catches data drift or upstream code changes early.
+  schedule:
+    - cron: "0 3 * * 1"  # Mondays at 03:00 UTC
+
+env:
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  train:
+    name: Train, evaluate, gate on R²
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run training
+        id: train
+        run: |
+          mkdir -p data mlruns models
+          # train.py reads data/europe_energy_1990_2025_cleaned.csv,
+          # writes mlruns/ and prints "R2 Score: <value>" as the last metric.
+          python -m batch_processing.train | tee train.log
+
+      - name: Extract R² and enforce threshold
+        run: |
+          THRESHOLD="${{ github.event.inputs.r2_threshold || '0.75' }}"
+          R2=$(grep -oP 'R2 Score: \K[0-9.]+' train.log | tail -n 1)
+          echo "Best R²: $R2 (threshold: $THRESHOLD)"
+          python -c "
+          import sys
+          r2 = float('$R2')
+          th = float('$THRESHOLD')
+          if r2 < th:
+              print(f'::error::R² {r2} is below threshold {th} — failing the pipeline.')
+              sys.exit(1)
+          print(f'::notice::R² {r2} >= threshold {th} — model accepted.')
+          "
+
+      - name: Archive MLflow runs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlruns
+          path: mlruns/
+          retention-days: 30
+
+      - name: Archive model artefacts
+        if: hashFiles('models/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: models
+          path: models/
+          retention-days: 90
+
+      - name: Archive training log
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-log
+          path: train.log
+          retention-days: 30

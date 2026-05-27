@@ -1,0 +1,61 @@
+[project]
+name = "energy-mlops"
+version = "0.1.0"
+description = "European energy forecasting MLOps pipeline."
+requires-python = ">=3.10"
+
+# ----------------------------------------------------------------------------
+# Ruff: linter + formatter (replaces flake8, isort, black).
+# ----------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "mlruns",
+  "data",
+  "batches",
+  "models",
+  "*.ipynb",
+]
+
+[tool.ruff.lint]
+# Start conservative — once these pass cleanly, you can add more rule sets
+# (e.g. "B" for bugbear, "UP" for pyupgrade, "SIM" for simplifications).
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort (import order)
+]
+ignore = [
+  "E501", # line too long — handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are allowed to use bare asserts and unused imports for fixtures.
+"tests/**" = ["F401", "F811"]
+
+# ----------------------------------------------------------------------------
+# Pytest.
+# ----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "integration: tests that need a live Postgres (skipped if not available)",
+]
+
+# ----------------------------------------------------------------------------
+# Coverage.
+# ----------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["batch_processing", "online_deploy"]
+omit = [
+  "*/tests/*",
+  "*/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
