@@ -1,9 +1,3 @@
-"""Tests for the preprocessing pipeline.
-
-Same pattern: reimplement the logic as a pure function so it can be tested
-without re-running the side effects (file IO) in preprocessing.py.
-"""
-
 from __future__ import annotations
 
 import pandas as pd
@@ -74,8 +68,6 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = df[COLUMNS]
     df = df.dropna(thresh=12)
     df = df.sort_values(["country", "year"])
-    # Forward-fill within each country. `include_groups=False` is the
-    # pandas 2.2+ way; we apply it on non-grouping columns then rejoin.
     grouped = df.groupby("country", group_keys=False)
     filled = grouped[df.columns.drop("country")].apply(lambda x: x.ffill())
     df = pd.concat([df[["country"]], filled], axis=1)
@@ -85,7 +77,6 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _make_row(country: str, year: int, **overrides):
-    """Build a row with all 20 columns populated to sensible defaults."""
     base = {col: 1.0 for col in COLUMNS}
     base["country"] = country
     base["year"] = year
@@ -129,11 +120,10 @@ def test_drops_countries_with_fewer_than_ten_years():
 
 def test_drops_duplicates():
     rows = [_make_row("Germany", y) for y in range(2000, 2015)]
-    # Add a duplicate of 2005.
     rows.append(_make_row("Germany", 2005, gdp=999.0))
     df = pd.DataFrame(rows)
     out = preprocess(df)
-    assert (out["country"] == "Germany").sum() == 15  # not 16
+    assert (out["country"] == "Germany").sum() == 15
 
 
 def test_output_has_exactly_twenty_columns():

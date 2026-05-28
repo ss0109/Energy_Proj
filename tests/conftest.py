@@ -1,9 +1,3 @@
-"""Shared pytest fixtures.
-
-Kept tiny on purpose — the goal is fast, deterministic unit tests that don't
-need the real OWID dataset or a trained model.
-"""
-
 from __future__ import annotations
 
 import os
@@ -15,25 +9,18 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _disable_db_logging(monkeypatch):
-    """Make sure no test accidentally opens a real Postgres connection at import."""
     monkeypatch.setenv("DISABLE_DB_LOGGING", "1")
     monkeypatch.setenv("SKIP_MODEL_LOAD", "1")
 
 
 @pytest.fixture
 def synthetic_energy_df() -> pd.DataFrame:
-    """A small but structurally correct stand-in for europe_energy_1990_2025_cleaned.csv.
 
-    Two countries, ten years each, all required columns. Values are linear in
-    `year` per country so tests can make exact assertions about lag/trend
-    behaviour.
-    """
     countries = ["switzerland", "germany"]
     years = list(range(2014, 2024))
     rows = []
     for c_idx, country in enumerate(countries):
         for y_idx, year in enumerate(years):
-            # Distinct value per (country, year) makes drift/lag bugs obvious.
             base = 100.0 + 10 * c_idx + y_idx
             rows.append(
                 {
@@ -64,7 +51,6 @@ def synthetic_energy_df() -> pd.DataFrame:
 
 @pytest.fixture
 def numeric_features() -> list[str]:
-    """The 18 numeric feature columns (everything except country/year)."""
     return [
         "population",
         "gdp",
@@ -89,5 +75,4 @@ def numeric_features() -> list[str]:
 
 @pytest.fixture
 def rng() -> np.random.Generator:
-    """Seeded RNG so tests are reproducible."""
     return np.random.default_rng(42)
