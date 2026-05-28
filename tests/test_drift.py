@@ -1,3 +1,11 @@
+"""Tests for the drift-detection helpers in prefect_flow.monitoring_task.
+
+Like test_train_features, this reimplements the helpers as pure functions
+rather than importing prefect_flow (which would pull in Prefect at import
+time). If you extract ks_test / psi into a `src/monitoring.py` module, swap
+these locals for imports.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -34,7 +42,9 @@ def psi(reference: np.ndarray, current: np.ndarray, bins: int = 10) -> float:
     return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
 
 
+# ---------------------------------------------------------------------------
 # KS test
+# ---------------------------------------------------------------------------
 class TestKsTest:
     def test_identical_distributions_no_drift(self, rng):
         data = rng.normal(0, 1, 500)
@@ -61,26 +71,32 @@ class TestKsTest:
         assert np.isnan(p)
 
 
+# ---------------------------------------------------------------------------
 # PSI
+# ---------------------------------------------------------------------------
 class TestPsi:
     def test_identical_distributions_psi_near_zero(self, rng):
         data = rng.normal(0, 1, 1000)
+        # PSI of a distribution against itself should be ~0 (not exactly 0
+        # because of the 1e-6 floor in empty bins).
         assert psi(data, data) < 0.01
 
     def test_shifted_distribution_psi_large(self, rng):
         ref = rng.normal(0, 1, 1000)
         cur = rng.normal(5, 1, 1000)
-        assert psi(ref, cur) > 0.25  
+        assert psi(ref, cur) > 0.25  # "major" by industry rule of thumb
 
     def test_moderate_shift_in_psi_band(self, rng):
         ref = rng.normal(0, 1, 2000)
         cur = rng.normal(0.5, 1, 2000)
         result = psi(ref, cur)
+        # A 0.5σ shift should land in the moderate band, not "no drift".
         assert 0.0 < result
 
     def test_empty_input_returns_nan(self):
         assert np.isnan(psi(np.array([]), np.array([1.0, 2.0, 3.0])))
 
     def test_constant_reference_returns_zero(self):
+        # All values identical → only one bin edge → no comparison possible.
         result = psi(np.array([5.0] * 100), np.array([5.0] * 100))
         assert result == 0.0
