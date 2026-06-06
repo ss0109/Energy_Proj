@@ -39,3 +39,16 @@ Makefile
 tests/
 requirements-dev.txt
 pyproject.toml
+
+data/
+*.csv
+mlruns/
+models/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.git/
+.github/
+tests/
+batches/
