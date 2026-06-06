@@ -7,7 +7,6 @@ on:
   pull_request:
     branches: [main]
 
-# Cancel older runs on the same branch when a new commit lands.
 concurrency:
   group: ci-cd-${{ github.ref }}
   cancel-in-progress: true
@@ -22,28 +21,20 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # =============================================================
-  # CI — Continuous Integration
-  # Runs on every push & PR. Gates the CD job below.
-  # =============================================================
   lint:
     name: CI · Lint (ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
       - name: Install ruff
         run: pip install ruff==0.6.9
-
       - name: Ruff check
         run: ruff check .
-
       - name: Ruff format check
         run: ruff format --check .
 
@@ -77,32 +68,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-
       - name: Initialise database schema
         run: |
           psql "postgresql://postgres:postgres@localhost:5432/energy_monitoring" -f db/init.sql
-
       - name: Run pytest
         run: pytest -v --cov=. --cov-report=xml --cov-report=term
-
-      - name: Upload coverage artefact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.xml
-          retention-days: 7
 
   docker-build:
     name: CI · Docker build & smoke test
@@ -111,7 +90,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -125,21 +103,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Generate minimal synthetic dataset for smoke test
+        run: |
+          mkdir -p ci-data
+          python << 'PY'
+          import pandas as pd
+          rows = []
+          for country in ["sweden", "norway"]:
+              for year in range(2018, 2026):
+                  rows.append({
+                      "country": country, "year": year,
+                      "population": 1e7, "gdp": 5e11,
+                      "primary_energy_consumption": 500.0,
+                      "energy_per_capita": 30.0, "energy_per_gdp": 1.2,
+                      "electricity_demand": 50.0,
+                      "electricity_demand_per_capita": 5.0,
+                      "fossil_fuel_consumption": 300.0,
+                      "fossil_electricity": 15.0, "fossil_share_energy": 40.0,
+                      "renewables_consumption": 200.0,
+                      "renewables_electricity": 25.0,
+                      "renewables_share_energy": 35.0,
+                      "low_carbon_electricity": 30.0,
+                      "low_carbon_share_energy": 50.0,
+                      "solar_electricity": 5.0,
+                      "wind_electricity": 10.0,
+                      "hydro_electricity": 15.0,
+                  })
+          pd.DataFrame(rows).to_csv(
+              "ci-data/europe_energy_1990_2025_cleaned.csv", index=False
+          )
+          PY
+
       - name: Smoke test — does the API start?
         run: |
           docker run -d --name api-smoke \
             -e DISABLE_DB_LOGGING=1 \
             -e SKIP_MODEL_LOAD=1 \
+            -e DATA_PATH=/data/europe_energy_1990_2025_cleaned.csv \
+            -v "${{ github.workspace }}/ci-data:/data" \
             -p 8000:8000 \
             energy-api:ci
-          sleep 8
+          sleep 10
           curl --fail --silent --show-error http://localhost:8000/ || (docker logs api-smoke && exit 1)
           docker stop api-smoke
 
-  # =============================================================
-  # CD — Continuous Deployment
-  # Only on push to main + version tags. Skipped on PRs.
-  # =============================================================
   cd:
     name: CD · Build & push image to GHCR
     runs-on: ubuntu-latest
@@ -148,17 +155,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -169,7 +173,6 @@ jobs:
             type=sha,prefix=,format=short
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -179,8 +182,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Print pushed tags
-        run: |
-          echo "Pushed:"
-          echo "${{ steps.meta.outputs.tags }}"
