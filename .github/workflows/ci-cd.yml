@@ -107,31 +107,33 @@ jobs:
         run: |
           mkdir -p ci-data
           python << 'PY'
-          import pandas as pd
+          import csv
+
+          columns = [
+              "country", "year", "population", "gdp",
+              "primary_energy_consumption", "energy_per_capita", "energy_per_gdp",
+              "electricity_demand", "electricity_demand_per_capita",
+              "fossil_fuel_consumption", "fossil_electricity", "fossil_share_energy",
+              "renewables_consumption", "renewables_electricity", "renewables_share_energy",
+              "low_carbon_electricity", "low_carbon_share_energy",
+              "solar_electricity", "wind_electricity", "hydro_electricity",
+          ]
+
           rows = []
           for country in ["sweden", "norway"]:
               for year in range(2018, 2026):
-                  rows.append({
-                      "country": country, "year": year,
-                      "population": 1e7, "gdp": 5e11,
-                      "primary_energy_consumption": 500.0,
-                      "energy_per_capita": 30.0, "energy_per_gdp": 1.2,
-                      "electricity_demand": 50.0,
-                      "electricity_demand_per_capita": 5.0,
-                      "fossil_fuel_consumption": 300.0,
-                      "fossil_electricity": 15.0, "fossil_share_energy": 40.0,
-                      "renewables_consumption": 200.0,
-                      "renewables_electricity": 25.0,
-                      "renewables_share_energy": 35.0,
-                      "low_carbon_electricity": 30.0,
-                      "low_carbon_share_energy": 50.0,
-                      "solar_electricity": 5.0,
-                      "wind_electricity": 10.0,
-                      "hydro_electricity": 15.0,
-                  })
-          pd.DataFrame(rows).to_csv(
-              "ci-data/europe_energy_1990_2025_cleaned.csv", index=False
-          )
+                  rows.append([
+                      country, year,
+                      1e7, 5e11, 500.0, 30.0, 1.2, 50.0, 5.0,
+                      300.0, 15.0, 40.0, 200.0, 25.0, 35.0,
+                      30.0, 50.0, 5.0, 10.0, 15.0,
+                  ])
+
+          with open("ci-data/europe_energy_1990_2025_cleaned.csv", "w", newline="") as f:
+              writer = csv.writer(f)
+              writer.writerow(columns)
+              writer.writerows(rows)
+          print(f"Generated {len(rows)} rows.")
           PY
 
       - name: Smoke test — does the API start?
